@@ -7,7 +7,7 @@ import { createServerClient, createServiceRoleClient } from '@/lib/supabase/serv
 // ============================================================
 
 interface AiConfig {
-  provider: 'openai' | 'anthropic' | 'custom';
+  provider: 'openai' | 'anthropic' | 'gemini' | 'custom';
   apiKey: string;
   model: string;
   endpointUrl?: string;
@@ -58,21 +58,24 @@ export async function getAiConfig(): Promise<AiConfig | null> {
     }
   }
 
-  // Fallback to environment variable when Vault has no key
-  if (!apiKey) {
-    apiKey = process.env.AI_API_KEY ?? '';
-  }
-
-  if (!apiKey) return null;
-
   // DB values take precedence; env vars fill in only what is not set in DB.
   // Validation is deferred until after resolving so env vars can substitute.
-  const resolvedProvider = (['openai', 'anthropic', 'custom'].includes(dbProvider))
+  const resolvedProvider = (['openai', 'anthropic', 'gemini', 'custom'].includes(dbProvider))
     ? dbProvider as AiConfig['provider']
-    : (['openai', 'anthropic', 'custom'].includes(process.env.AI_PROVIDER ?? '')
+    : (['openai', 'anthropic', 'gemini', 'custom'].includes(process.env.AI_PROVIDER ?? '')
       ? process.env.AI_PROVIDER as AiConfig['provider']
       : null);
 
+  // Fallback to environment variables when Vault has no key. Provider-specific
+  // names (GEMINI_API_KEY / OPENAI_API_KEY, per the VHU deployment docs) are
+  // tried before the generic AI_API_KEY used by the inherited admin AI config.
+  if (!apiKey) {
+    if (resolvedProvider === 'gemini') apiKey = process.env.GEMINI_API_KEY ?? '';
+    else if (resolvedProvider === 'openai') apiKey = process.env.OPENAI_API_KEY ?? '';
+  }
+  if (!apiKey) apiKey = process.env.AI_API_KEY ?? '';
+
+  if (!apiKey) return null;
   if (!resolvedProvider) return null;
 
   const resolvedModel = dbModel || (process.env.AI_MODEL ?? '');
@@ -146,6 +149,17 @@ export async function callAi(
         });
         break;
       }
+      case 'gemini': {
+        const model = config.model || 'gemini-2.0-flash';
+        url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKey}`;
+        headers = { 'Content-Type': 'application/json' };
+        body = JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          generationConfig: { temperature: 0.3, responseMimeType: 'application/json' },
+        });
+        break;
+      }
       case 'custom': {
         url = config.endpointUrl ?? '';
         if (!url) throw new Error('Custom endpoint URL is required');
@@ -187,6 +201,9 @@ export async function callAi(
     if (config.provider === 'anthropic') {
       content = data.content?.[0]?.text ?? '';
       tokensUsed = (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0);
+    } else if (config.provider === 'gemini') {
+      content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      tokensUsed = (data.usageMetadata?.totalTokenCount ?? 0);
     } else {
       // OpenAI and custom (OpenAI-compatible)
       content = data.choices?.[0]?.message?.content ?? '';
@@ -253,6 +270,17 @@ export async function callAiText(
         });
         break;
       }
+      case 'gemini': {
+        const model = config.model || 'gemini-2.0-flash';
+        url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKey}`;
+        headers = { 'Content-Type': 'application/json' };
+        body = JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          generationConfig: { temperature: 0.5 },
+        });
+        break;
+      }
       case 'custom': {
         url = config.endpointUrl ?? '';
         if (!url) throw new Error('Custom endpoint URL is required');
@@ -292,6 +320,9 @@ export async function callAiText(
     if (config.provider === 'anthropic') {
       content = data.content?.[0]?.text ?? '';
       tokensUsed = (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0);
+    } else if (config.provider === 'gemini') {
+      content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      tokensUsed = (data.usageMetadata?.totalTokenCount ?? 0);
     } else {
       content = data.choices?.[0]?.message?.content ?? '';
       tokensUsed = data.usage?.total_tokens ?? 0;

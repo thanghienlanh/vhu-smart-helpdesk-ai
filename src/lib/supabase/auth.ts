@@ -50,3 +50,46 @@ export async function requireAdmin() {
   if (!profile || profile.role !== 'admin') redirect('/');
   return user;
 }
+
+/** Requester (role='user') redirect target used by role-based post-login routing. */
+export async function requireManagerOrAdmin() {
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, department_id')
+    .eq('id', user.id)
+    .single();
+  if (!profile || !['manager', 'admin'].includes(profile.role)) redirect('/');
+  return { user, profile };
+}
+
+/** Returns the caller's full VHU profile (role/department) or redirects to /login. */
+export async function requireVhuProfile() {
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, email, display_name, role, department_id, is_blocked')
+    .eq('id', user.id)
+    .single();
+  if (!profile) redirect('/login');
+  if (profile.is_blocked) redirect('/login?blocked=1');
+  return { user, profile };
+}
+
+/** Post-login landing route per role (§17 of spec: "Chuyển hướng theo vai trò"). */
+export function roleHomePath(role: string | null | undefined): string {
+  switch (role) {
+    case 'admin':
+      return '/admin';
+    case 'manager':
+      return '/manager';
+    case 'agent':
+      return '/agent';
+    default:
+      return '/tickets';
+  }
+}

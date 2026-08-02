@@ -2,6 +2,8 @@
 
 import { createServerClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { writeAuditLog } from '@/lib/audit/log';
+import { roleHomePath } from '@/lib/supabase/auth';
 
 export type AuthState = {
   error?: string;
@@ -55,6 +57,11 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
         locked_until: null,
       });
     }
+    await writeAuditLog({
+      actor: { id: null, email, role: null },
+      action: 'login_failed',
+      entityType: 'auth',
+    });
     return { error: 'Invalid email or password.' };
   }
 
@@ -67,7 +74,18 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
     }).eq('email', email.toLowerCase());
   }
 
-  redirect('/');
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase.from('profiles').select('role').eq('id', user.id).single()
+    : { data: null };
+
+  await writeAuditLog({
+    actor: { id: user?.id ?? null, email, role: profile?.role ?? null },
+    action: 'login_success',
+    entityType: 'auth',
+  });
+
+  redirect(roleHomePath(profile?.role));
 }
 
 export async function signup(_prev: AuthState, formData: FormData): Promise<AuthState> {

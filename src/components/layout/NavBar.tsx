@@ -22,36 +22,27 @@ export default async function NavBar() {
   const kbVisible = kbSetting?.value === 'true';
 
   const displayName = profile?.display_name || user?.email || '';
-  const isAgent = profile && ['agent', 'admin'].includes(profile.role);
+  const isAgent = profile && profile.role === 'agent';
+  const isManager = profile && profile.role === 'manager';
   const isAdmin = profile && profile.role === 'admin';
 
   // Build nav links for both desktop and mobile (top-level navigation bar)
   const navLinks: { href: string; label: string }[] = [];
-  // Regular users see "My Tickets" in top nav; agents/admins get it in the user menu instead
-  if (user && !isAgent) navLinks.push({ href: '/tickets', label: 'My Tickets' });
-  if (isAgent) {
-    navLinks.push({ href: '/agent', label: 'Agent Dashboard' });
-  }
-  if (kbVisible) navLinks.push({ href: '/help', label: 'Help Center' });
-  if (isAgent) {
-    navLinks.push({ href: '/kb/manage', label: 'Manage Articles' });
-  }
+  if (user && profile?.role === 'user') navLinks.push({ href: '/tickets', label: 'Yêu cầu của tôi' });
+  if (isAgent) navLinks.push({ href: '/agent', label: 'Bảng điều khiển nhân viên' });
+  if (isManager) navLinks.push({ href: '/manager', label: 'Bảng điều khiển quản lý' });
+  if (isAdmin) navLinks.push({ href: '/admin', label: 'Quản trị hệ thống' });
+  if (kbVisible) navLinks.push({ href: '/help', label: 'Trợ giúp' });
 
   // Build user menu links (inside the dropdown)
   const userMenuLinks: { href: string; label: string }[] = [];
-  // Admin: Setup is first
-  if (isAdmin) {
-    userMenuLinks.push({ href: '/admin', label: 'Setup' });
+  if (isAdmin) userMenuLinks.push({ href: '/admin', label: 'Quản trị hệ thống' });
+  if (isManager) userMenuLinks.push({ href: '/manager', label: 'Bảng điều khiển quản lý' });
+  if (isAgent || isManager || isAdmin) {
+    userMenuLinks.push({ href: '/tickets', label: 'Tất cả yêu cầu' });
   }
-  // Agents/admins: My Tickets, Reports, Canned Responses
-  if (isAgent) {
-    userMenuLinks.push({ href: '/tickets', label: 'My Tickets' });
-    userMenuLinks.push({ href: '/reports', label: 'Reports' });
-    userMenuLinks.push({ href: '/canned-responses', label: 'Canned Responses' });
-  }
-  // All users: Profile, Notification Settings
-  userMenuLinks.push({ href: '/profile', label: 'Profile' });
-  userMenuLinks.push({ href: '/notification-settings', label: 'Notification Settings' });
+  userMenuLinks.push({ href: '/profile', label: 'Hồ sơ cá nhân' });
+  userMenuLinks.push({ href: '/notification-settings', label: 'Cài đặt thông báo' });
 
   return (
     <nav className="bg-white border-b border-gray-200 px-4 py-3 relative" aria-label="Main navigation">
@@ -59,7 +50,7 @@ export default async function NavBar() {
         {/* Left side */}
         <div className="flex items-center gap-4">
           <Link href="/" className="text-lg font-semibold text-gray-900 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none rounded">
-            HelpDesk
+            VHU Smart Helpdesk AI
           </Link>
           {/* Mobile hamburger */}
           <MobileMenu links={navLinks} />
@@ -85,7 +76,7 @@ export default async function NavBar() {
             </>
           ) : (
             <a href="/login" className="text-sm text-blue-600 hover:text-blue-800 min-h-[44px] flex items-center focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none rounded px-2">
-              Log in
+              Đăng nhập
             </a>
           )}
         </div>
