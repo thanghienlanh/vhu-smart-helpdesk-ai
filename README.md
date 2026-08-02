@@ -1,5 +1,11 @@
 [![CI](https://github.com/surveyjs/supabase-helpdesk/actions/workflows/ci.yml/badge.svg)](https://github.com/surveyjs/supabase-helpdesk/actions/workflows/ci.yml)
 
+## VHU Smart Helpdesk AI — Submission
+
+- **Live deployment:** https://vhu-smart-helpdesk-ai.vercel.app
+- **Step-by-step Word report:** [Bao_cao_VHU_Smart_Helpdesk_AI.docx](docs/submission/Bao_cao_VHU_Smart_Helpdesk_AI.docx)
+- **Result screenshots:** [docs/submission/screenshots](docs/submission/screenshots)
+
 # HelpDesk
 
 A full-featured customer-support ticket system built with **Next.js 16**, **Supabase**, **Tailwind CSS**, and **TypeScript**. End-users submit and track support requests while agents and admins manage, respond to, and resolve them.
